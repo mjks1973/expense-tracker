@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Expense Tracker</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#2f6fed">
+<meta name="application-name" content="Expenses">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Expenses">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<style>
+  :root {
+    --bg:#f6f7f9; --card:#fff; --ink:#1c2430; --muted:#6b7686; --line:#e4e8ee;
+    --accent:#2f6fed; --ok:#1f9d6b; --warn:#e69b1f; --bad:#d9434b;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; padding-bottom:env(safe-area-inset-bottom); -webkit-tap-highlight-color:transparent; font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink); }
+  header { padding-top:env(safe-area-inset-top); background:var(--card); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:5; }
+  .wrap { max-width:960px; margin:0 auto; padding:0 16px; }
+  .bar { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; flex-wrap:wrap; }
+  h1 { font-size:18px; margin:0; }
+  nav { display:flex; gap:4px; }
+  nav button { border:0; background:none; padding:8px 12px; border-radius:8px; font:inherit; color:var(--muted); cursor:pointer; }
+  nav button.on { background:#eaf0fe; color:var(--accent); font-weight:600; }
+  main { padding:16px 0 60px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:16px; }
+  .card h2 { margin:0 0 12px; font-size:15px; }
+  .grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); }
+  label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+  input,select,textarea { width:100%; font-size:16px; padding:10px; border:1px solid var(--line); border-radius:8px; font:inherit; background:#fff; color:var(--ink); }
+  button.primary { background:var(--accent); color:#fff; border:0; padding:10px 16px; border-radius:8px; font:inherit; font-weight:600; cursor:pointer; }
+  button.ghost { background:#fff; color:var(--ink); border:1px solid var(--line); padding:9px 14px; border-radius:8px; font:inherit; cursor:pointer; }
+  button.danger { color:var(--bad); }
+  button:disabled { opacity:.5; cursor:default; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .drop { border:2px dashed var(--line); border-radius:12px; padding:20px; text-align:center; color:var(--muted); cursor:pointer; }
+  .drop.over { border-color:var(--accent); background:#f1f6ff; }
+  .thumb { max-height:140px; border-radius:8px; border:1px solid var(--line); margin-top:10px; }
+  .msg { padding:10px 12px; border-radius:8px; margin:10px 0 0; font-size:14px; }
+  .msg.ok { background:#e8f7f0; color:#116a47; } .msg.err { background:#fdecee; color:#a02830; } .msg.info { background:#eef3fd; color:#1f4fb0; }
+  .big { font-size:28px; font-weight:700; }
+  .muted { color:var(--muted); font-size:13px; }
+  .meter { height:12px; background:#edf0f4; border-radius:6px; overflow:hidden; margin:8px 0 4px; }
+  .meter > div { height:100%; background:var(--ok); transition:width .3s; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th,td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th { color:var(--muted); font-weight:600; font-size:12px; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .scroll { overflow-x:auto; }
+  .catrow { display:grid; grid-template-columns:110px 1fr 90px; gap:8px; align-items:center; margin:6px 0; font-size:14px; }
+  .catbar { height:10px; background:#edf0f4; border-radius:5px; overflow:hidden; } .catbar > div { height:100%; background:var(--accent); }
+  .pill { display:inline-block; padding:2px 8px; border-radius:99px; font-size:12px; background:#eef1f6; }
+  .hide { display:none; }
+  svg text { font:11px system-ui,sans-serif; fill:var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap bar">
+    <h1>💸 Expense Tracker</h1>
+    <nav id="nav">
+      <button data-tab="add" class="on">Add</button>
+      <button data-tab="list">Expenses</button>
+      <button data-tab="dash">Dashboard</button>
+      <button data-tab="settings">Settings</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ADD -->
+  <section id="tab-add">
+    <div class="card">
+      <h2>Receipt screenshot (optional)</h2>
+      <div class="drop" id="drop">Tap to choose, drag a screenshot here, or paste one (Ctrl/Cmd+V)</div>
+      <input type="file" id="file" accept="image/*" class="hide">
+      <img id="thumb" class="thumb hide" alt="Receipt preview">
+      <div id="ocrMsg"></div>
+    </div>
+
+    <div class="card">
+      <h2 id="formTitle">Add expense</h2>
+      <form id="form">
+        <div class="grid">
+          <div><label>Date</label><input type="date" id="f-date" required></div>
+          <div><label>Amount</label><input type="number" id="f-amount" step="0.01" min="0" inputmode="decimal" required placeholder="0.00"></div>
+          <div><label>Category</label><select id="f-cat"></select></div>
+          <div><label>Merchant / description</label><input id="f-merchant" placeholder="e.g. FairPrice"></div>
+        </div>
+        <div style="margin-top:12px"><label>Note (optional)</label><input id="f-note"></div>
+        <div class="row" style="margin-top:14px">
+          <button class="primary" type="submit" id="saveBtn">Save expense</button>
+          <button class="ghost" type="button" id="cancelEdit">Clear</button>
+        </div>
+        <div id="saveMsg"></div>
+      </form>
+    </div>
+  </section>
+
+  <!-- LIST -->
+  <section id="tab-list" class="hide">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <h2 style="margin:0">Expenses</h2>
+        <div class="row">
+          <select id="l-month" style="width:auto"></select>
+          <button class="ghost" id="exportBtn">⬇ Download Excel</button>
+        </div>
+      </div>
+      <div class="scroll" style="margin-top:10px">
+        <table>
+          <thead><tr><th>Date</th><th>Category</th><th>Merchant</th><th>Note</th><th class="num">Amount</th><th></th></tr></thead>
+          <tbody id="l-body"></tbody>
+        </table>
+      </div>
+      <div id="l-empty" class="muted hide" style="padding:12px 0">No expenses for this month yet.</div>
+    </div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section id="tab-dash" class="hide">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <h2 style="margin:0">Month overview</h2>
+        <select id="d-month" style="width:auto"></select>
+      </div>
+      <div class="big" id="d-total" style="margin-top:10px"></div>
+      <div class="muted" id="d-limitText"></div>
+      <div class="meter"><div id="d-meter" style="width:0"></div></div>
+      <div class="muted" id="d-compare"></div>
+    </div>
+    <div class="card"><h2>By category</h2><div id="d-cats"></div></div>
+    <div class="card"><h2>Month by month (last 12 months)</h2><div id="d-chart"></div></div>
+    <div class="card">
+      <h2>Monthly table</h2>
+      <div class="scroll"><table id="d-table"></table></div>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="tab-settings" class="hide">
+    <div class="card">
+      <h2>Monthly spending limit</h2>
+      <div class="grid">
+        <div><label>Limit per month</label><input type="number" id="s-limit" min="0" step="1" placeholder="e.g. 2000"></div>
+        <div><label>Currency label</label><input id="s-cur" maxlength="4" placeholder="SGD"></div>
+        <div><label>Early warning at (% of limit)</label><input type="number" id="s-warn" min="1" max="99" placeholder="80"></div>
+        <div><label>Server passcode (if you set APP_PASSCODE)</label><input type="password" id="s-pass" autocomplete="off"></div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button class="primary" id="s-save">Save settings</button>
+        <button class="ghost" id="s-test">Send test email</button>
+      </div>
+      <div id="s-msg"></div>
+      <p class="muted">Alerts go to the Gmail address configured on the server (GMAIL_USER, or ALERT_EMAIL if you set it). You get one email when you pass the early-warning level and one when the limit is exceeded, per month.</p>
+    </div>
+    <div class="card" id="installCard">
+      <h2>Install on your phone</h2>
+      <div id="installBody" class="muted"></div>
+      <div class="row" style="margin-top:10px"><button class="primary hide" id="installBtn">Install app</button></div>
+    </div>
+    <div class="card">
+      <h2>Your data</h2>
+      <p class="muted">Expenses and receipt images are stored in this browser on this device. Download the Excel file regularly as a backup.</p>
+      <div class="row">
+        <button class="ghost" id="backupBtn">Download backup (JSON)</button>
+        <button class="ghost" id="restoreBtn">Restore backup</button>
+        <input type="file" id="restoreFile" accept="application/json" class="hide">
+      </div>
+      <div id="b-msg"></div>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+'use strict';
+const CATS = ['Shopping','Grocery','Transport','Petrol','Food','Entertainment','Others'];
+const $ = (id) => document.getElementById(id);
+
+/* ---------- storage: IndexedDB for expenses, localStorage for settings ---------- */
+let db;
+function openDB() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('expenses-db', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('expenses', { keyPath: 'id' });
+    r.onsuccess = () => { db = r.result; res(); };
+    r.onerror = () => rej(r.error);
+  });
+}
+const tx = (mode) => db.transaction('expenses', mode).objectStore('expenses');
+const dbAll = () => new Promise((res, rej) => { const q = tx('readonly').getAll(); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); });
+const dbPut = (o) => new Promise((res, rej) => { const q = tx('readwrite').put(o); q.onsuccess = () => res(); q.onerror = () => rej(q.error); });
+const dbDel = (id) => new Promise((res, rej) => { const q = tx('readwrite').delete(id); q.onsuccess = () => res(); q.onerror = () => rej(q.error); });
+const dbClear = () => new Promise((res, rej) => { const q = tx('readwrite').clear(); q.onsuccess = () => res(); q.onerror = () => rej(q.error); });
+
+const defaults = { limit: 0, cur: 'SGD', warn: 80, pass: '', sent: {} };
+const getSettings = () => { try { return { ...defaults, ...JSON.parse(localStorage.getItem('settings') || '{}') }; } catch { return { ...defaults }; } };
+const setSettings = (s) => localStorage.setItem('settings', JSON.stringify(s));
+
+let expenses = [];
+let editingId = null;
+let currentImage = null; // data URL of the receipt (resized)
+
+/* ---------- helpers ---------- */
+const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+const monthOf = (dateStr) => dateStr.slice(0, 7);
+const money = (n) => (getSettings().cur || '') + ' ' + (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const monthLabel = (m) => new Date(m + '-01T00:00:00').toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+const shortMonth = (m) => new Date(m + '-01T00:00:00').toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const sum = (arr) => arr.reduce((a, e) => a + e.amount, 0);
+function say(el, text, kind) { el.innerHTML = text ? `<div class="msg ${kind}">${esc(text)}</div>` : ''; }
+function monthsList() {
+  const set = new Set(expenses.map((e) => monthOf(e.date)));
+  set.add(monthOf(today()));
+  return [...set].sort().reverse();
+}
+function last12() {
+  const out = []; const d = new Date(); d.setDate(1);
+  for (let i = 11; i >= 0; i--) { const x = new Date(d.getFullYear(), d.getMonth() - i, 1); out.push(x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0')); }
+  return out;
+}
+
+/* ---------- tabs ---------- */
+document.querySelectorAll('#nav button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
+function showTab(t) {
+  document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('on', b.dataset.tab === t));
+  ['add', 'list', 'dash', 'settings'].forEach((x) => $('tab-' + x).classList.toggle('hide', x !== t));
+  if (t === 'list') renderList();
+  if (t === 'dash') renderDash();
+  if (t === 'settings') { loadSettingsForm(); renderInstall(); }
+}
+
+/* ---------- receipt handling ---------- */
+function resizeImage(file, max = 1400, quality = 0.8) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file); const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url); res(c.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('Could not open that image')); };
+    img.src = url;
+  });
+}
+async function apiPost(path, body) {
+  const r = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json', 'x-app-key': getSettings().pass || '' }, body: JSON.stringify(body) });
+  let j = {}; try { j = await r.json(); } catch {}
+  if (!r.ok) throw new Error(j.error || ('Request failed (' + r.status + ')'));
+  return j;
+}
+async function handleFile(file) {
+  if (!file || !file.type.startsWith('image/')) return say($('ocrMsg'), 'Please choose an image file.', 'err');
+  try {
+    currentImage = await resizeImage(file);
+    $('thumb').src = currentImage; $('thumb').classList.remove('hide');
+    say($('ocrMsg'), 'Reading receipt…', 'info');
+    const r = await apiPost('/api/parse-receipt', { image: currentImage });
+    if (r.date) $('f-date').value = r.date;
+    if (r.amount != null) $('f-amount').value = r.amount;
+    if (r.merchant) $('f-merchant').value = r.merchant;
+    if (r.note) $('f-note').value = r.note;
+    if (r.category) $('f-cat').value = r.category;
+    say($('ocrMsg'), 'Receipt read. Check the details below and tap Save.', 'ok');
+  } catch (e) {
+    say($('ocrMsg'), 'Could not read the receipt automatically (' + e.message + '). The image is attached, so just fill in the details.', 'err');
+  }
+}
+$('drop').addEventListener('click', () => $('file').click());
+$('file').addEventListener('change', (e) => handleFile(e.target.files[0]));
+['dragover', 'dragenter'].forEach((ev) => $('drop').addEventListener(ev, (e) => { e.preventDefault(); $('drop').classList.add('over'); }));
+['dragleave', 'drop'].forEach((ev) => $('drop').addEventListener(ev, (e) => { e.preventDefault(); $('drop').classList.remove('over'); }));
+$('drop').addEventListener('drop', (e) => handleFile(e.dataTransfer.files[0]));
+document.addEventListener('paste', (e) => {
+  const f = [...(e.clipboardData?.files || [])].find((x) => x.type.startsWith('image/'));
+  if (f) { showTab('add'); handleFile(f); }
+});
+
+/* ---------- add / edit ---------- */
+function resetForm() {
+  editingId = null; currentImage = null;
+  $('form').reset(); $('f-date').value = today(); $('f-cat').value = 'Food';
+  $('thumb').classList.add('hide'); $('thumb').removeAttribute('src');
+  $('ocrMsg').innerHTML = ''; $('formTitle').textContent = 'Add expense'; $('saveBtn').textContent = 'Save expense'; $('file').value = '';
+}
+$('cancelEdit').addEventListener('click', () => { resetForm(); say($('saveMsg'), ''); });
+$('form').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const amount = parseFloat($('f-amount').value);
+  if (!(amount > 0)) return say($('saveMsg'), 'Enter an amount greater than 0.', 'err');
+  const rec = {
+    id: editingId || (Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
+    date: $('f-date').value, amount: Math.round(amount * 100) / 100, category: $('f-cat').value,
+    merchant: $('f-merchant').value.trim(), note: $('f-note').value.trim(), image: currentImage || null,
+  };
+  await dbPut(rec);
+  expenses = await dbAll();
+  const wasEdit = !!editingId;
+  resetForm();
+  say($('saveMsg'), wasEdit ? 'Updated.' : 'Saved ' + money(rec.amount) + ' under ' + rec.category + '.', 'ok');
+  await checkLimit(monthOf(rec.date));
+});
+
+/* ---------- limit + Gmail alerts ---------- */
+async function checkLimit(month) {
+  const s = getSettings();
+  if (!(s.limit > 0)) return;
+  const total = sum(expenses.filter((e) => monthOf(e.date) === month));
+  const pct = total / s.limit * 100;
+  s.sent[month] = s.sent[month] || {};
+  let kind = null;
+  if (pct >= 100 && !s.sent[month].over) kind = 'over';
+  else if (pct >= s.warn && pct < 100 && !s.sent[month].warn) kind = 'warn';
+  if (!kind) return;
+
+  const byCat = CATS.map((c) => [c, sum(expenses.filter((e) => monthOf(e.date) === month && e.category === c))]).filter((x) => x[1] > 0).sort((a, b) => b[1] - a[1]);
+  const lines = byCat.map(([c, v]) => `  ${c}: ${money(v)}`).join('\n');
+  const subject = kind === 'over' ? `⚠️ Over budget for ${monthLabel(month)}` : `Heads up: ${Math.round(pct)}% of your ${monthLabel(month)} budget used`;
+  const text = `${kind === 'over' ? 'You have exceeded' : 'You are approaching'} your monthly limit.\n\n` +
+    `Month: ${monthLabel(month)}\nSpent: ${money(total)}\nLimit: ${money(s.limit)}\n` +
+    (kind === 'over' ? `Over by: ${money(total - s.limit)}\n` : `Remaining: ${money(s.limit - total)}\n`) +
+    `\nBy category:\n${lines}\n`;
+  try {
+    await apiPost('/api/notify', { subject, text });
+    s.sent[month][kind] = true; setSettings(s);
+    say($('saveMsg'), $('saveMsg').textContent + ' ' + (kind === 'over' ? 'Limit exceeded – email sent.' : 'Early-warning email sent.'), 'ok');
+  } catch (e) {
+    say($('saveMsg'), 'Saved, but the Gmail alert failed: ' + e.message, 'err');
+  }
+}
+
+/* ---------- expenses list ---------- */
+function fillMonthSelect(sel) {
+  const prev = sel.value; const months = monthsList();
+  sel.innerHTML = months.map((m) => `<option value="${m}">${monthLabel(m)}</option>`).join('');
+  if (months.includes(prev)) sel.value = prev;
+}
+function renderList() {
+  fillMonthSelect($('l-month'));
+  const m = $('l-month').value;
+  const rows = expenses.filter((e) => monthOf(e.date) === m).sort((a, b) => b.date.localeCompare(a.date));
+  $('l-empty').classList.toggle('hide', rows.length > 0);
+  $('l-body').innerHTML = rows.map((e) => `<tr>
+    <td>${e.date}</td><td><span class="pill">${esc(e.category)}</span></td><td>${esc(e.merchant)}</td><td>${esc(e.note)}</td>
+    <td class="num">${money(e.amount)}</td>
+    <td class="num">${e.image ? `<button class="ghost" data-img="${e.id}">🧾</button> ` : ''}<button class="ghost" data-edit="${e.id}">Edit</button> <button class="ghost danger" data-del="${e.id}">Delete</button></td>
+  </tr>`).join('') + (rows.length ? `<tr><td colspan="4"><b>Total</b></td><td class="num"><b>${money(sum(rows))}</b></td><td></td></tr>` : '');
+}
+$('l-month').addEventListener('change', renderList);
+$('l-body').addEventListener('click', async (ev) => {
+  const t = ev.target.closest('button'); if (!t) return;
+  if (t.dataset.del) { if (confirm('Delete this expense?')) { await dbDel(t.dataset.del); expenses = await dbAll(); renderList(); } }
+  if (t.dataset.edit) {
+    const e = expenses.find((x) => x.id === t.dataset.edit); editingId = e.id; currentImage = e.image;
+    $('f-date').value = e.date; $('f-amount').value = e.amount; $('f-cat').value = e.category; $('f-merchant').value = e.merchant; $('f-note').value = e.note;
+    if (e.image) { $('thumb').src = e.image; $('thumb').classList.remove('hide'); } else $('thumb').classList.add('hide');
+    $('formTitle').textContent = 'Edit expense'; $('saveBtn').textContent = 'Update expense'; showTab('add'); window.scrollTo(0, 0);
+  }
+  if (t.dataset.img) { const e = expenses.find((x) => x.id === t.dataset.img); const w = window.open(); w.document.write(`<img src="${e.image}" style="max-width:100%">`); }
+});
+
+/* ---------- dashboard ---------- */
+function renderDash() {
+  fillMonthSelect($('d-month'));
+  const m = $('d-month').value; const s = getSettings();
+  const rows = expenses.filter((e) => monthOf(e.date) === m); const total = sum(rows);
+  $('d-total').textContent = money(total);
+  const meter = $('d-meter');
+  if (s.limit > 0) {
+    const pct = total / s.limit * 100;
+    $('d-limitText').textContent = `${Math.round(pct)}% of your ${money(s.limit)} limit` + (total > s.limit ? ` — over by ${money(total - s.limit)}` : ` — ${money(s.limit - total)} left`);
+    meter.style.width = Math.min(100, pct) + '%'; meter.style.background = pct >= 100 ? 'var(--bad)' : pct >= s.warn ? 'var(--warn)' : 'var(--ok)';
+  } else { $('d-limitText').textContent = 'No monthly limit set (see Settings).'; meter.style.width = '0'; }
+
+  const idx = monthsList().slice().sort().indexOf(m); const all = monthsList().slice().sort();
+  const prev = idx > 0 ? all[idx - 1] : null;
+  if (prev) { const pt = sum(expenses.filter((e) => monthOf(e.date) === prev)); const d = total - pt;
+    $('d-compare').textContent = pt > 0 ? `${d >= 0 ? '▲' : '▼'} ${money(Math.abs(d))} (${Math.abs(Math.round(d / pt * 100))}%) vs ${monthLabel(prev)}` : ''; } else $('d-compare').textContent = '';
+
+  const maxC = Math.max(1, ...CATS.map((c) => sum(rows.filter((e) => e.category === c))));
+  $('d-cats').innerHTML = CATS.map((c) => { const v = sum(rows.filter((e) => e.category === c));
+    return `<div class="catrow"><div>${c}</div><div class="catbar"><div style="width:${v / maxC * 100}%"></div></div><div style="text-align:right">${money(v)}</div></div>`; }).join('');
+
+  // 12-month bar chart with limit line
+  const ms = last12(); const vals = ms.map((x) => sum(expenses.filter((e) => monthOf(e.date) === x)));
+  const top = Math.max(1, s.limit || 0, ...vals) * 1.1; const W = 720, H = 220, pl = 8, pb = 26, bw = (W - pl * 2) / 12;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Monthly spending">`;
+  ms.forEach((x, i) => { const h = vals[i] / top * (H - pb - 16); const xx = pl + i * bw + 6;
+    const over = s.limit > 0 && vals[i] > s.limit;
+    svg += `<rect x="${xx}" y="${H - pb - h}" width="${bw - 12}" height="${h}" rx="3" fill="${over ? 'var(--bad)' : 'var(--accent)'}"/>`;
+    if (vals[i] > 0) svg += `<text x="${xx + (bw - 12) / 2}" y="${H - pb - h - 4}" text-anchor="middle">${Math.round(vals[i])}</text>`;
+    svg += `<text x="${xx + (bw - 12) / 2}" y="${H - 8}" text-anchor="middle">${shortMonth(x)}</text>`; });
+  if (s.limit > 0) { const y = H - pb - s.limit / top * (H - pb - 16); svg += `<line x1="0" x2="${W}" y1="${y}" y2="${y}" stroke="var(--warn)" stroke-dasharray="5 4"/><text x="${W - 4}" y="${y - 4}" text-anchor="end">limit</text>`; }
+  $('d-chart').innerHTML = svg + '</svg>';
+
+  // month × category table
+  const mAll = monthsList();
+  $('d-table').innerHTML = `<thead><tr><th>Month</th>${CATS.map((c) => `<th class="num">${c}</th>`).join('')}<th class="num">Total</th></tr></thead><tbody>` +
+    mAll.map((x) => { const r = expenses.filter((e) => monthOf(e.date) === x); const t = sum(r);
+      return `<tr><td>${monthLabel(x)}</td>${CATS.map((c) => `<td class="num">${sum(r.filter((e) => e.category === c)).toFixed(2)}</td>`).join('')}<td class="num"><b>${t.toFixed(2)}</b>${s.limit > 0 && t > s.limit ? ' ⚠️' : ''}</td></tr>`; }).join('') + '</tbody>';
+}
+$('d-month').addEventListener('change', renderDash);
+
+/* ---------- Excel export ---------- */
+function download(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
+$('exportBtn').addEventListener('click', () => {
+  const s = getSettings(); const months = monthsList().slice().sort();
+  if (!expenses.length) return alert('Nothing to export yet.');
+  if (typeof XLSX === 'undefined') { // CSV fallback if the CDN is blocked
+    const lines = ['Date,Category,Merchant,Note,Amount'].concat(expenses.slice().sort((a, b) => a.date.localeCompare(b.date)).map((e) => [e.date, e.category, e.merchant, e.note, e.amount].map((v) => '"' + String(v).replace(/"/g, '""') + '"').join(',')));
+    return download('expenses.csv', new Blob([lines.join('\n')], { type: 'text/csv' }));
+  }
+  const wb = XLSX.utils.book_new();
+  const sumRows = [['Month', ...CATS, 'Total', 'Limit', 'Over limit?']];
+  months.forEach((m) => { const r = expenses.filter((e) => monthOf(e.date) === m); const t = sum(r);
+    sumRows.push([monthLabel(m), ...CATS.map((c) => Math.round(sum(r.filter((e) => e.category === c)) * 100) / 100), Math.round(t * 100) / 100, s.limit || '', s.limit > 0 ? (t > s.limit ? 'YES' : 'No') : '']); });
+  const ws = XLSX.utils.aoa_to_sheet(sumRows); ws['!cols'] = [{ wch: 18 }, ...CATS.map(() => ({ wch: 13 })), { wch: 12 }, { wch: 10 }, { wch: 12 }];
+  XLSX.utils.book_append_sheet(wb, ws, 'Summary');
+  months.forEach((m) => {
+    const r = expenses.filter((e) => monthOf(e.date) === m).sort((a, b) => a.date.localeCompare(b.date));
+    const rows = [['Date', 'Category', 'Merchant', 'Note', 'Amount'], ...r.map((e) => [e.date, e.category, e.merchant, e.note, e.amount]), [], ['', '', '', 'TOTAL', Math.round(sum(r) * 100) / 100]];
+    const w = XLSX.utils.aoa_to_sheet(rows); w['!cols'] = [{ wch: 12 }, { wch: 14 }, { wch: 24 }, { wch: 28 }, { wch: 12 }];
+    XLSX.utils.book_append_sheet(wb, w, m);
+  });
+  XLSX.writeFile(wb, 'expenses-' + today() + '.xlsx');
+});
+
+/* ---------- settings + backup ---------- */
+function loadSettingsForm() { const s = getSettings(); $('s-limit').value = s.limit || ''; $('s-cur').value = s.cur; $('s-warn').value = s.warn; $('s-pass').value = s.pass; }
+$('s-save').addEventListener('click', () => {
+  const s = getSettings(); const newLimit = parseFloat($('s-limit').value) || 0;
+  if (newLimit !== s.limit) s.sent = {}; // new limit => alerts can fire again
+  s.limit = newLimit; s.cur = $('s-cur').value.trim() || 'SGD'; s.warn = Math.min(99, Math.max(1, parseInt($('s-warn').value) || 80)); s.pass = $('s-pass').value;
+  setSettings(s); say($('s-msg'), 'Settings saved.', 'ok');
+});
+$('s-test').addEventListener('click', async () => {
+  say($('s-msg'), 'Sending…', 'info');
+  try { await apiPost('/api/notify', { subject: 'Expense Tracker test', text: 'Gmail alerts are working. You will be emailed when you reach your monthly limit.' }); say($('s-msg'), 'Test email sent. Check your inbox.', 'ok'); }
+  catch (e) { say($('s-msg'), 'Failed: ' + e.message, 'err'); }
+});
+$('backupBtn').addEventListener('click', () => download('expense-backup-' + today() + '.json', new Blob([JSON.stringify({ expenses, settings: getSettings() })], { type: 'application/json' })));
+$('restoreBtn').addEventListener('click', () => $('restoreFile').click());
+$('restoreFile').addEventListener('change', async (e) => {
+  try {
+    const j = JSON.parse(await e.target.files[0].text());
+    if (!Array.isArray(j.expenses)) throw new Error('Not a backup file');
+    for (const x of j.expenses) await dbPut(x);
+    if (j.settings) setSettings({ ...defaults, ...j.settings });
+    expenses = await dbAll(); say($('b-msg'), 'Restored ' + j.expenses.length + ' expenses.', 'ok');
+  } catch (err) { say($('b-msg'), 'Restore failed: ' + err.message, 'err'); }
+});
+
+/* ---------- PWA: service worker + install ---------- */
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+let deferredInstall = null;
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+function renderInstall() {
+  const body = $('installBody'), btn = $('installBtn');
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  if (isStandalone()) { body.textContent = 'Installed. You are using the app now.'; btn.classList.add('hide'); }
+  else if (deferredInstall) { body.textContent = 'Add Expense Tracker to your home screen for one-tap access.'; btn.classList.remove('hide'); }
+  else if (ios) { body.textContent = 'In Safari, tap the Share button, then "Add to Home Screen".'; btn.classList.add('hide'); }
+  else { body.textContent = 'Open this page in Chrome on Android and choose "Install app" from the menu (⋮), or Add to Home screen.'; btn.classList.add('hide'); }
+}
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredInstall = e; renderInstall(); });
+window.addEventListener('appinstalled', () => { deferredInstall = null; renderInstall(); });
+$('installBtn').addEventListener('click', async () => { if (!deferredInstall) return; deferredInstall.prompt(); await deferredInstall.userChoice; deferredInstall = null; renderInstall(); });
+
+/* ---------- init ---------- */
+(async function init() {
+  $('f-cat').innerHTML = CATS.map((c) => `<option>${c}</option>`).join('');
+  await openDB(); expenses = await dbAll(); resetForm(); renderInstall();
+  const q = new URLSearchParams(location.search).get('tab'); if (['add','list','dash','settings'].includes(q)) showTab(q);
+})();
+</script>
+</body>
+</html>

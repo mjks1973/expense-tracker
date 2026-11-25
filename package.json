@@ -1,0 +1,6 @@
+{
+  "name": "expense-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Daily expense tracker with receipt reading, monthly limit alerts and Excel export"
+}
